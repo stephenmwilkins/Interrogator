@@ -3,7 +3,7 @@ import numpy as np
 
 from . import IGM
 
-from ..photom import *
+from flare.photom import *
 
 
 
@@ -32,7 +32,7 @@ class sed():
 
         return {f: np.trapz(self.lnu * F[f].T, self.lam) / np.trapz(F[f].T, self.lam) for f in F['filters']}
 
-    
+
     def get_fnu(self, cosmo, z, include_IGM = True): # flux nJy, depends on redshift and cosmology
 
         self.lamz = self.lam * (1. + z)
