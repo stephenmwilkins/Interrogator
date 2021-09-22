@@ -4,7 +4,9 @@ import numpy as np
 import pickle
 
 from . import core
-from ..core import *
+# from ..core import *
+
+import flare
 
 import copy
 
@@ -43,7 +45,7 @@ class SPS():
 
     def __init__(self, grid, path_to_SPS_grid = '/data/SPS/nebular/3.0/'):
 
-        self.grid = pickle.load(open(FLARE_dir + path_to_SPS_grid + grid + '/nebular.p','rb'), encoding='latin1')
+        self.grid = pickle.load(open(flare.FLARE_dir + path_to_SPS_grid + grid + '/nebular.p','rb'), encoding='latin1')
 
         self.lam = self.grid['lam']
 
@@ -68,6 +70,12 @@ class SPS():
 
         if dust:
 
+            # --- intrinsic SEDs
+            sed.stellar_intrinsic = copy.copy(sed.stellar)
+            sed.nebular_intrinsic = copy.copy(sed.nebular)
+            sed.total_intrinsic = copy.copy(sed.total)
+
+
             dust_model, dust_model_params = dust
 
 
@@ -78,7 +86,6 @@ class SPS():
                 dmp = dust_model_params
 
                 # --- see Ciaran's thesis example for how to use this
-
 
                 i = np.where(self.grid['log10age']>dmp['log10age_BC'])[0][0]
 
@@ -164,15 +171,151 @@ class SPS():
 
 
 
+
+# --- this needs updating to do lines, will also need dust
+
 class lines():
 
-    def __init__(self, grid, path_to_SPS_grid = FLARE_dir + '/data/SPS/nebular/3.0', dust = False):
+    def __init__(self, grid, path_to_SPS_grid = flare.FLARE_dir + '/data/SPS/nebular/3.0/'):
 
         self.grid = pickle.load(open(path_to_SPS_grid + grid + '/lines.p','rb'), encoding='latin1')
 
 
-    def get_L(self, SFZH, line):
 
-        L = np.sum(10**self.grid[line]['luminosity'] * SFZH, axis=(0,1))
+    def get_all_info(self, SFZH, SED_p, dust = False):
 
-        return L
+        return {line: self.get_info(SFZH, line, SED_p, dust = dust) for line in self.grid['lines']}
+
+
+    # --- return above as columns
+    def get_all_info_cols(self, SFZH, SED_p, dust = False):
+
+        line_info = self.get_all_info(SFZH, SED_p, dust = dust)
+        print(line_info.keys())
+
+        line_info_col = {k:[] for k in ['line', 'lam', 'EW', 'luminosity']}
+
+        for line in self.grid['lines']:
+            line_info_col['line'].append(line)
+            for col in ['lam', 'EW', 'luminosity']:
+                line_info_col[col].append(line_info[line][col])
+
+        for col in ['line','lam', 'EW', 'luminosity']:
+            line_info_col[col] = np.array(line_info_col[col])
+
+        return line_info_col
+
+
+    def get_info(self, SFZH, line, SED_p, dust = False):  # not this was changed to  match the usage in SED modeller, this may have broken something.
+
+
+        if dust:
+            if len(dust) == 2:
+                dust_model, dust_model_params = dust
+            else:
+                dust_model = dust
+        else:
+            dust_model = False
+
+
+        line_info = {}
+
+        # --- wavelength
+
+        line_info['lam'] = lam = self.grid[line]['lam'] #AA
+
+        # --- these assume fesc = 0.0
+        line_info['max_luminosity'] = np.sum(10**self.grid[line]['luminosity'] * SFZH, axis=(0,1))
+        line_info['max_total_continuum'] = np.sum(self.grid[line]['total_continuum'] * SFZH, axis=(0,1))
+        line_info['max_EW'] = line_info['max_luminosity']/(3E8*line_info['max_total_continuum']/((line_info['lam'])**2*1E-10))
+
+        if dust_model:
+
+            if dust_model in ['just_gas', 'simple', 'pacman']:
+
+                line_info['intrinsic_luminosity'] = (1-SED_p['fesc'])*np.sum(10**self.grid[line]['luminosity'] * SFZH, axis=(0,1))
+                line_info['intrinsic_nebular_continuum'] = (1-SED_p['fesc'])*np.sum(self.grid[line]['nebular_continuum'] * SFZH, axis=(0,1))
+                line_info['intrinsic_stellar_continuum'] = np.sum(self.grid[line]['stellar_continuum'] * SFZH, axis=(0,1))
+                line_info['intrinsic_total_continuum'] =  line_info['intrinsic_nebular_continuum'] + line_info['intrinsic_stellar_continuum']
+                line_info['intrinsic_EW'] = line_info['intrinsic_luminosity']/(3E8*line_info['intrinsic_total_continuum']/((line_info['lam'])**2*1E-10))
+
+                if dust_model == 'just_gas':
+
+                    line_info['luminosity'] = copy.copy(line_info['intrinsic_luminosity'])
+                    line_info['total_continuum'] = copy.copy(line_info['intrinsic_total_continuum'])
+                    line_info['EW'] = copy.copy(line_info['intrinsic_EW'])
+
+
+            if dust_model == 'simple':
+
+                tau = 10**(SED_p['log10tau_V']) * getattr(dust_curves, dust_model)(params = dust_model_params).tau(lam)
+                T = np.exp(-tau)
+
+                line_info['attenuated_luminosity'] = T * line_info['intrinsic_luminosity']
+                line_info['attenuated_nebular_continuum'] =  T * line_info['intrinsic_nebular_continuum']
+                line_info['attenuated_stellar_continuum'] = T * line_info['intrinsic_stellar_continuum']
+                line_info['attenuated_total_continuum'] =  line_info['attenuated_nebular_continuum'] + line_info['attenuated_stellar_continuum']
+                line_info['attenuated_EW'] = line_info['attenuated_luminosity']/(3E8*line_info['attenuated_total_continuum']/((line_info['lam'])**2*1E-10))
+
+                line_info['luminosity'] = line_info['attenuated_luminosity']
+                line_info['nebular_continuum'] = line_info['attenuated_nebular_continuum']
+                line_info['stellar_continuum'] = line_info['attenuated_stellar_continuum']
+                line_info['total_continuum'] =  line_info['attenuated_total_continuum']
+                line_info['EW'] = line_info['attenuated_EW']
+
+
+
+            if dust_model == 'pacman':
+
+                dmp = dust_model_params
+
+                i = np.where(self.grid['log10age']>dmp['log10age_BC'])[0][0]
+
+                sfzh_young = copy.copy(sfzh)
+                sfzh_young[i:,:] = 0.0
+
+                sfzh_old = copy.copy(sfzh)
+                sfzh_old[:i,:] = 0.0
+
+                SFZH_young = np.expand_dims(sfzh_young, axis=2)
+                SFZH_old = np.expand_dims(sfzh_old, axis=2)
+
+                line_info['intrinsic_young_luminosity'] = (1-SED_p['fesc'])*np.sum(10**self.grid[line]['luminosity'] * SFZH_young, axis=(0,1))
+                line_info['intrinsic_young_nebular_continuum'] = (1-SED_p['fesc'])*np.sum(self.grid[line]['nebular_continuum'] * SFZH_young, axis=(0,1))
+                line_info['intrinsic_young_stellar_continuum'] = np.sum(self.grid[line]['stellar_continuum'] * SFZH_young, axis=(0,1))
+                line_info['intrinsic_young_total_continuum'] =  line_info['intrinsic_young_nebular_continuum'] + line_info['intrinsic_young_stellar_continuum']
+
+                line_info['intrinsic_old_luminosity'] = (1-SED_p['fesc'])*np.sum(10**self.grid[line]['luminosity'] * SFZH_old, axis=(0,1))
+                line_info['intrinsic_old_nebular_continuum'] = (1-SED_p['fesc'])*np.sum(self.grid[line]['nebular_continuum'] * SFZH_old, axis=(0,1))
+                line_info['intrinsic_old_stellar_continuum'] = np.sum(self.grid[line]['stellar_continuum'] * SFZH_old, axis=(0,1))
+                line_info['intrinsic_old_total_continuum'] =  line_info['intrinsic_old_nebular_continuum'] + line_info['intrinsic_old_stellar_continuum']
+
+                tau_BC = 10**(dmp['tau_ISM_to_BC']*SED_p['log10tau_V']) * dust_curves.simple(params = {'slope': dmp['alpha_BC']}).tau(self.lam)
+                tau_ISM = 10**(SED_p['log10tau_V']) * dust_curves.simple(params = {'slope': dmp['alpha_ISM']}).tau(self.lam)
+
+                T_young = np.exp(-tau_BC)*np.exp(-tau_ISM)
+                T_old = np.exp(-tau_ISM)
+
+                line_info['attenuated_young_luminosity'] = T_young * line_info['intrinsic_young_luminosity']
+                line_info['attenuated_young_nebular_continuum'] = T_young * line_info['intrinsic_young_nebular_continuum']
+                line_info['attenuated_young_stellar_continuum'] = T_young * line_info['intrinsic_young_stellar_continuum']
+                line_info['attenuated_young_total_continuum'] = T_young * line_info['intrinsic_young_total_continuum']
+
+                line_info['attenuated_old_luminosity'] = T_young * line_info['intrinsic_old_luminosity']
+                line_info['attenuated_old_nebular_continuum'] = T_young * line_info['intrinsic_old_nebular_continuum']
+                line_info['attenuated_old_stellar_continuum'] = T_young * line_info['intrinsic_old_stellar_continuum']
+                line_info['attenuated_old_total_continuum'] = T_young * line_info['intrinsic_old_total_continuum']
+
+                line_info['attenuated_luminosity'] = line_info['attenuated_young_luminosity'] + line_info['attenuated_old_luminosity']
+                line_info['attenuated_nebular_continuum']= line_info['attenuated_young_nebular_continuum'] + line_info['attenuated_old_nebular_continuum']
+                line_info['attenuated_stellar_continuum'] = line_info['attenuated_young_stellar_continuum']+ line_info['attenuated_old_stellar_continuum']
+                line_info['attenuated_total_continuum'] = line_info['attenuated_young_total_continuum'] + line_info['attenuated_old_total_continuum']
+                line_info['attenuated_EW'] = line_info['attenuated_luminosity']/(3E8*line_info['attenuated_total_continuum']/((line_info['lam'])**2*1E-10))
+
+                line_info['luminosity'] = copy.copy(line_info['luminosity'])
+                line_info['nebular_continuum'] = copy.copy(line_info['nebular_continuum'])
+                line_info['stellar_continuum'] = copy.copy(line_info['stellar_continuum'])
+                line_info['total_continuum'] = copy.copy(line_info['total_continuum'])
+                line_info['EW'] = copy.copy(line_info['attenuated_EW'])
+
+        return line_info
