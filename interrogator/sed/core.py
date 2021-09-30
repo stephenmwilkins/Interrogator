@@ -1,10 +1,13 @@
 
 import numpy as np
+import scipy.integrate
 
 from . import IGM
 
 from flare.photom import *
 
+h = 6.626E-34*1E7 # erg/Hz
+c = 3.E8 #m/s
 
 
 class sed():
@@ -51,6 +54,46 @@ class sed():
     def return_Fnu(self, F): # broad band flux/nJy
 
         return {f: np.trapz(self.fnu * F[f].T, self.lamz) / np.trapz(F[f].T, self.lamz) for f in F['filters']}
+
+
+    # def return_log10Q(self):
+    #     """
+    #     :return:
+    #     """
+    #
+    #     xi = simps(np.flip(self.lnu[s]/conv), nu(np.flip(lam[s])))/np.interp(nu(1500), nu(lam), fnu)
+    #
+    #     return np.log10(Q)
+    #
+
+
+    def return_log10Q(self):
+        """
+        :return:
+        """
+
+        llam = self.lnu * c / (self.lam**2*1E-10) # erg s^-1 \AA^-1
+        nlam = (llam*self.lam*1E-10)/(h*c) # s^-1 \AA^-1
+        s = ((self.lam >= 0) & (self.lam < 912)).nonzero()[0]
+        Q = scipy.integrate.simps(nlam[s], self.lam[s])
+
+        return np.log10(Q)
+
+    #
+    # def return_log10Q3(self):
+    #     """
+    #     :return:
+    #     """
+    #     s = ((self.lam >= 0) & (self.lam < 912)).nonzero()[0]
+    #     conv = 1.98644586E-08/(self.lam[s]**2*1E10)
+    #     #conv = ((constants.h * constants.c / ((lam[s] * units.AA).to(units.m))).to(units.erg)).value  # alternative using astropy.units and astropy.constants
+    #
+    #     Q = scipy.integrate.simps(self.lnu[s]/conv, self.lam[s])
+    #
+    #     return np.log10(Q)
+
+
+
 
 def rebin(l, f, n): # rebin SED [currently destroys original]
 
