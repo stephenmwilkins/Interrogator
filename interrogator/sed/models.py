@@ -57,6 +57,8 @@ class SPS():
 
         SFZH = np.expand_dims(sfzh, axis=2)
 
+        # --- calculate intrinsic SED
+
         sed.stellar = core.sed(self.lam)
         sed.stellar.lnu = np.sum(self.grid['stellar'] * SFZH, axis=(0,1))
         sed.stellar.lnu[self.lam<912.] *= SED_p['fesc']
@@ -71,9 +73,9 @@ class SPS():
         if dust:
 
             # --- intrinsic SEDs
-            sed.stellar_intrinsic = copy.copy(sed.stellar)
-            sed.nebular_intrinsic = copy.copy(sed.nebular)
-            sed.total_intrinsic = copy.copy(sed.total)
+            sed.stellar_intrinsic = copy.deepcopy(sed.stellar)
+            sed.nebular_intrinsic = copy.deepcopy(sed.nebular)
+            sed.total_intrinsic = copy.deepcopy(sed.total)
 
 
             dust_model, dust_model_params = dust
@@ -151,7 +153,7 @@ class SPS():
 
                 print('not yet implemented')
 
-            else:
+            elif dust_model == 'simple':
 
                 tau = 10**(SED_p['log10tau_V']) * getattr(dust_curves, dust_model)(params = dust_model_params).tau(self.lam)
 
@@ -161,12 +163,20 @@ class SPS():
                 sed.nebular.lnu *= T
                 sed.total.lnu *= T
 
+
+            else:
+
+                print('dust model not implemented')
+
         return sed
 
-    def get_Q(self, SFZH):
 
+
+    def get_Q(self, SFZH):
         return np.log10(np.sum(10**self.grid['log10Q'] * SFZH, axis=(0,1)))
 
+    def get_log10Q(self, SFZH):
+        return self.get_Q(SFZH)
 
 
 

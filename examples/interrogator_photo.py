@@ -1,4 +1,8 @@
 
+
+# --- NOT UPDATED
+
+
 import time
 import numpy as np
 import sys
@@ -48,10 +52,10 @@ parameters = {'log10_duration': 8., 'log10Z': -2., 'log10M*': 8., 'log10fesc': -
 
 # print('-'*20)
 # print('using full SED generator:')
-# 
+#
 # model = models.full(model_definitions, filters = filters)
-# mod = model.p(parameters) 
-# 
+# mod = model.p(parameters)
+#
 # for f,flux in zip(filters, mod.F): print('{0}: {1:.3f}'.format(f, flux, FLARE.photom.flux_to_m(flux)))
 
 
@@ -59,7 +63,7 @@ print('-'*20)
 print('using pre-computed photogrid:')
 
 model = models.photo(model_definitions, filters = filters)
-mod = model.p(parameters) 
+mod = model.p(parameters)
 
 print('SFR10: {0:.2f}'.format(mod.properties['SFR10']))
 for f,flux in zip(filters, mod.F): print('{0}: {1:.3f} {2:.2f}'.format(f, flux, FLARE.photom.flux_to_m(flux)))
@@ -90,7 +94,7 @@ if redshift: model.prior_def['z'] = {'type': 'delta', 'value': z} # --- ASSUME R
 
 # start_time = time.time()
 # N = 10
-# for i in range(N): model.p(parameters) 
+# for i in range(N): model.p(parameters)
 # print('{0:.4f}'.format((time.time() - start_time)/N))
 
 
@@ -111,5 +115,3 @@ if run:
     fit.save()
 
 plots.plots(ID).simple_triangle()
-
-

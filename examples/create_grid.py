@@ -1,4 +1,8 @@
 
+
+# --- NOT UPDATED
+
+
 import sys
 import os
 import numpy as np
@@ -22,5 +26,3 @@ IMF =  'ModSalpeter_300'
 # models.generate_photometry_grid(SPS, IMF, filters, redshifts = np.arange(0,5,1))
 # models.generate_photometry_grid(SPS, IMF, filters, redshifts = [8.])
 models.generate_photometry_grid(SPS, IMF, filters)
-
-

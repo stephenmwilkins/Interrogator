@@ -1,4 +1,7 @@
 
+# Produce different star formation and metal enrichment histories
+
+
 import numpy as np
 import matplotlib.pyplot as plt
 

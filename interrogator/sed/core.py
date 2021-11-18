@@ -36,6 +36,18 @@ class sed():
         return {f: np.trapz(self.lnu * F[f].T, self.lam) / np.trapz(F[f].T, self.lam) for f in F['filters']}
 
 
+    def return_Lnu_Window(self, window): # return broad band luminosity/erg/s/Hz in a window defined by window [l_min, l_max]
+
+        s = (self.lam>window[0])&(self.lam<window[1])
+
+        return np.trapz(self.lnu[s], self.lam[s]) / np.trapz(np.ones(len(self.lam[s])), self.lam[s])
+
+    def return_Lnu_lam(self, lam): # return broad band luminosity/erg/s/Hz in a window defined by window [l_min, l_max]
+
+        return np.interp(lam, self.lam, self.lnu)
+
+
+
     def get_fnu(self, cosmo, z, include_IGM = True): # flux nJy, depends on redshift and cosmology
 
         self.lamz = self.lam * (1. + z)

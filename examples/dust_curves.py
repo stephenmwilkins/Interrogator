@@ -7,8 +7,8 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 
-import FLARE
-from FLARE.SED import dust_curves
+
+from interrogator.sed import dust_curves
 
 
 
