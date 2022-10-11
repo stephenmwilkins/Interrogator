@@ -21,7 +21,7 @@ import flare.filters
 component_plt = False
 fesc_plt = False
 dust_plt = True
-flux_plt = False
+flux_plt = True
 
 
 # -------------------------------------------------
@@ -149,8 +149,12 @@ if flux_plt:
     F = flare.filters.add_filters(filters, new_lam = SED.total.lamz) # --- NOTE: need to give it the redshifted
 
 
+    print(SED.total.lamz)
+
+
     SED.total.get_Fnu(F) # generates Fnu (broad band fluxes)
-    for f in filters: plt.scatter(F[f].pivwv(), np.log10(SED.total.Fnu[f]), edgecolor = 'k', zorder = 2, label = f)
+    for f in filters:
+        plt.scatter(F[f].pivwv(), np.log10(SED.total.Fnu[f]), edgecolor = 'k', zorder = 2, label = f)
 
     plt.xlim([5000.,50000.])
 
